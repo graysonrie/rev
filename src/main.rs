@@ -104,4 +104,4 @@ pub fn prompt_for_revit_version() -> String {
     prompt_for_revit_version()
 }
 
-// cargo install --path C:\Users\grieger.EMA\Desktop\Rust\revitcli
+// cargo install --path C:\Users\grieger.EMA\Desktop\Rust\rev

@@ -13,7 +13,7 @@ pub fn save_state(state: &State) {
     let app_data_dir = dirs::data_dir();
 
     if let Some(app_data_dir) = app_data_dir {
-        let state_file_path = app_data_dir.join("revitcli");
+        let state_file_path = app_data_dir.join("rev");
         if !state_file_path.exists() {
             std::fs::create_dir_all(state_file_path.clone()).unwrap();
         }
@@ -27,7 +27,7 @@ pub fn save_state(state: &State) {
 pub fn get_state() -> Option<State> {
     let app_data_dir = dirs::data_dir();
     if let Some(app_data_dir) = app_data_dir {
-        let state_file_path = app_data_dir.join("revitcli/RevitState.json");
+        let state_file_path = app_data_dir.join("rev/RevitState.json");
         if let Ok(state_file) = File::open(state_file_path) {
             let state: State = serde_json::from_reader(state_file).unwrap();
             return Some(state);
@@ -39,4 +39,3 @@ pub fn get_state() -> Option<State> {
 pub fn get_state_or_default() -> State {
     get_state().unwrap_or_default()
 }
-
