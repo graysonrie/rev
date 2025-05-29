@@ -1,0 +1,26 @@
+[package]
+name = "revitcli"
+version = "0.1.0"
+edition = "2024"
+authors = ["Grayson Rieger"]
+description = "A CLI tool for managing Revit add-in projects"
+license = "MIT"
+repository = "https://github.com/graysonrieger/revitcli"
+readme = "README.md"
+keywords = ["revit", "cli", "build-tool", "addin"]
+categories = ["command-line-utilities", "development-tools::build-utils"]
+
+[dependencies]
+clap = { version = "4.5.1", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.39.0", features = ["full"] }
+dirs = "5.0.0"
+glob = "0.3.1"
+uuid = { version = "1.10.0", features = ["v4"] }
+pathdiff = "0.2.1"
+clipboard = "0.5"
+path-absolutize = "3.1.1"
+
+[package.metadata.windows]
+subsystem = "console"
