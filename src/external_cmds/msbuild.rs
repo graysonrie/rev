@@ -26,7 +26,7 @@ pub fn build_project(project_path: &str) -> Result<String, MsBuildError> {
             println!("System-wide MSBuild not found, trying Visual Studio path...");
             if Path::new(VS_MSBUILD_PATH).exists() {
                 match Command::new(VS_MSBUILD_PATH).arg(project_path).output() {
-                     Ok(output) => {
+                    Ok(output) => {
                         if !output.status.success() {
                             return Err(MsBuildError::Output(
                                 String::from_utf8_lossy(&output.stderr).to_string(),
