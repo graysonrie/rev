@@ -86,7 +86,7 @@ pub fn ensure_revit_version_is_set() -> String {
         revit_version
     }
 }
-pub fn prompt_for_revit_version() -> String {
+fn prompt_for_revit_version() -> String {
     println!("Enter the Revit version you want to use:");
     let mut revit_version = String::new();
     stdin().read_line(&mut revit_version).unwrap();
@@ -104,4 +104,4 @@ pub fn prompt_for_revit_version() -> String {
     prompt_for_revit_version()
 }
 
-// cargo install --path C:\Users\grieger.EMA\Desktop\Rust\rev
+// cargo install --path C:\Users\grieger.EMA\Desktop\Rust\revitcli

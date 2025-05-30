@@ -1,4 +1,5 @@
 pub mod addin_file;
+pub mod web_app;
 use crate::cmds::build;
 use crate::cmds::locate;
 use crate::ensure_revit_version_is_set;
@@ -24,6 +25,7 @@ pub fn execute() {
                         // Create a new directory for the addin. This will contain the DLL of the addin.
                         let addin_dir = revit_addins_path.join(&addin_name);
                         std::fs::create_dir_all(&addin_dir).unwrap();
+
                         // Copy the DLL to the addin directory:
                         let target_path = addin_dir.join(local_dll_path);
                         std::fs::copy(dll_path, target_path).unwrap();
@@ -31,6 +33,10 @@ pub fn execute() {
                         let target_addin_file_path =
                             revit_addins_path.join(format!("{}.addin", addin_name));
                         std::fs::copy(&addin_file_path, target_addin_file_path).unwrap();
+
+                        // Try to build the web app if it exists:
+                        web_app::build_if_exists(&addin_dir);
+
                         println!("Addin exported successfully");
                     }
                     Err(e) => {
