@@ -2,7 +2,7 @@ use crate::cmds::build;
 use crate::utils;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use path_absolutize::Absolutize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Prints out the full path to the project DLL
 pub fn execute() {
@@ -11,7 +11,7 @@ pub fn execute() {
         Ok(_) => (),
         Err(e) => println!("Could not build project: {}", e),
     }
-    match get_project_dll_path(true) {
+    match get_main_dll_path(true) {
         Ok(path) => {
             println!("{}", path);
             // Attempt to copy the path to the clipboard:
@@ -27,11 +27,14 @@ fn get_csproj_path() -> Option<String> {
     utils::recursively_check_for_file(".", "*.csproj", 3, utils::SearchDirection::Child)
 }
 
-/// Returns the path to the project's DLL file or an error message if it cannot be found.
-///
-/// If absolute is true, the path will be absolute.
-/// Otherwise, the path will be relative to the csproj file.
-pub fn get_project_dll_path(absolute: bool) -> Result<String, String> {
+pub struct ProjectInfo {
+    /// The name of the project + .csproj
+    pub full_project_name: String,
+    pub project_name: String,
+    /// As you can guess: the directory that the project csproj file resides in
+    pub csproj_dir: String,
+}
+pub fn get_project_info() -> Result<ProjectInfo, String> {
     let csproj_path = get_csproj_path();
     if let Some(csproj_path) = csproj_path {
         let csproj_dir = Path::new(&csproj_path)
@@ -39,12 +42,43 @@ pub fn get_project_dll_path(absolute: bool) -> Result<String, String> {
             .unwrap()
             .to_string_lossy()
             .into_owned();
-        let csproj_name = Path::new(&csproj_path)
+        let full_project_name = Path::new(&csproj_path)
             .file_name()
             .unwrap()
             .to_string_lossy()
             .into_owned();
-        let dll_name = csproj_name.replace(".csproj", ".dll");
+        let project_name = full_project_name.replace(".csproj", "");
+        return Ok(ProjectInfo {
+            project_name,
+            full_project_name,
+            csproj_dir,
+        });
+    }
+    Err("No csproj file found".to_string())
+}
+
+pub fn get_main_dll_path(absolute: bool) -> Result<String, String> {
+    let proj_info = get_project_info();
+    if let Ok(proj_info) = proj_info {
+        let name = proj_info.project_name;
+        get_project_dll_path(absolute, name)
+    } else {
+        Err("No csproj file found".to_string())
+    }
+}
+
+/// Returns the path to the project's DLL file or an error message if it cannot be found.
+///
+/// If absolute is true, the path will be absolute.
+/// Otherwise, the path will be relative to the csproj file.
+///
+/// Do not include the .dll extension in the name.
+pub fn get_project_dll_path(absolute: bool, name: String) -> Result<String, String> {
+    let proj_info = get_project_info();
+    if let Ok(proj_info) = proj_info {
+        let csproj_dir = proj_info.csproj_dir;
+
+        let dll_name = name + ".dll";
         let dll_path = utils::recursively_check_for_file(
             &csproj_dir,
             &dll_name,
