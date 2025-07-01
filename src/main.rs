@@ -6,6 +6,9 @@ mod external_cmds;
 mod state;
 mod utils;
 
+/// The default starting directory for the CLI.
+const DEFAULT_STARTING_DIR: &str = ".";
+
 /// Revit CLI - A command line tool for managing Revit add-in projects
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -52,8 +55,15 @@ fn main() {
     let args = Args::parse();
 
     match args.command {
-        Commands::Build => cmds::build::execute(),
-        Commands::Export => cmds::export::execute(),
+        Commands::Build => {
+            let _ = ensure_revit_version_is_set();
+            cmds::build::execute(DEFAULT_STARTING_DIR)
+        }
+        Commands::Export => cmds::export::execute_auto(
+            DEFAULT_STARTING_DIR,
+            ensure_revit_version_is_set().as_str(),
+            &["RealRevitPlugin"],
+        ),
         Commands::RevitVersion => {
             let revit_version = ensure_revit_version_is_set();
             println!(
@@ -69,7 +79,7 @@ fn main() {
                 ..state
             });
         }
-        Commands::Locate => cmds::locate::execute(),
+        Commands::Locate => cmds::locate::execute(DEFAULT_STARTING_DIR),
     }
 }
 

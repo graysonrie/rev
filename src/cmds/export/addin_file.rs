@@ -1,15 +1,21 @@
 use crate::state;
 use crate::utils;
 use crate::utils::input::{prompt_user, prompt_user_with_default};
+use quick_xml::Reader;
+use quick_xml::events::Event;
 use std::{
     fs::File,
     io::{BufWriter, Read, Write},
     path::Path,
 };
 
-pub fn handle_addin_file() -> Result<String, String> {
-    let csproj_path =
-        utils::recursively_check_for_file(".", "*.csproj", 3, utils::SearchDirection::Child);
+pub fn handle_addin_file(starting_dir: &str) -> Result<String, String> {
+    let csproj_path = utils::recursively_check_for_file(
+        starting_dir,
+        "*.csproj",
+        3,
+        utils::SearchDirection::Child,
+    );
     if let Some(csproj_path) = csproj_path {
         let parent_dir = Path::new(&csproj_path).parent().unwrap();
         let project_name = Path::new(&csproj_path)
@@ -31,7 +37,7 @@ pub fn handle_addin_file() -> Result<String, String> {
 }
 
 /// Returns true if the addin file contains template information or does not exist
-fn is_addin_file_a_template_or_missing(path: &Path) -> bool {
+pub fn is_addin_file_a_template_or_missing(path: &Path) -> bool {
     let mut addin_file = match File::open(path) {
         Ok(file) => file,
         Err(_) => return true,
@@ -76,7 +82,8 @@ fn prompt_user_for_addin_file_info(project_name: &str) -> AddinFileInfo {
     }
 }
 
-struct AddinFileInfo {
+#[derive(Debug, Clone)]
+pub struct AddinFileInfo {
     pub name: String,
     pub assembly: String,
     pub addin_id: String,
@@ -86,7 +93,70 @@ struct AddinFileInfo {
     pub vendor_email: String,
 }
 
-fn create_addin_file(path: &Path, addin_info: AddinFileInfo) -> Result<(), std::io::Error> {
+#[derive(Debug, Clone)]
+pub enum GetAddinFileInfoError {
+    FileNotFound,
+    FailedToOpenFile(String),
+    FailedToReadFile(String),
+    FailedToParseXml(quick_xml::Error),
+}
+
+pub fn get_addin_file_info(path_to_addin_file: &str) -> Result<AddinFileInfo, GetAddinFileInfoError> {
+    if !Path::new(path_to_addin_file).exists() {
+        return Err(GetAddinFileInfoError::FileNotFound);
+    }
+
+    let mut file =
+        File::open(path_to_addin_file).map_err(|e| GetAddinFileInfoError::FailedToOpenFile(e.to_string()))?;
+
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .map_err(|e| GetAddinFileInfoError::FailedToReadFile(e.to_string()))?;
+
+    let mut reader = Reader::from_str(&contents);
+
+    let mut buf = Vec::new();
+    let mut current_element = String::new();
+    let mut addin_info = AddinFileInfo {
+        name: String::new(),
+        assembly: String::new(),
+        addin_id: String::new(),
+        full_class_name: String::new(),
+        vendor_id: String::new(),
+        vendor_description: String::new(),
+        vendor_email: String::new(),
+    };
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => {
+                current_element = String::from_utf8_lossy(e.name().as_ref()).to_string();
+            }
+            Ok(Event::Text(e)) => {
+                let text = String::from_utf8_lossy(e.as_ref()).to_string();
+
+                match current_element.as_str() {
+                    "Name" => addin_info.name = text,
+                    "Assembly" => addin_info.assembly = text,
+                    "AddInId" => addin_info.addin_id = text,
+                    "FullClassName" => addin_info.full_class_name = text,
+                    "VendorId" => addin_info.vendor_id = text,
+                    "VendorDescription" => addin_info.vendor_description = text,
+                    "VendorEmail" => addin_info.vendor_email = text,
+                    _ => {}
+                }
+            }
+            Ok(Event::Eof) => break,
+            Ok(_) => {}
+            Err(e) => return Err(GetAddinFileInfoError::FailedToParseXml(e)),
+        }
+        buf.clear();
+    }
+
+    Ok(addin_info)
+}
+
+pub fn create_addin_file(path: &Path, addin_info: AddinFileInfo) -> Result<(), std::io::Error> {
     let addin_file = File::create(path)?;
     let mut addin_file = BufWriter::new(addin_file);
 

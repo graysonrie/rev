@@ -5,13 +5,13 @@ use path_absolutize::Absolutize;
 use std::path::Path;
 
 /// Prints out the full path to the project DLL
-pub fn execute() {
+pub fn execute(starting_dir: &str) {
     // First: build the project:
-    match build::build_csharp_project() {
+    match build::build_csharp_project(starting_dir) {
         Ok(_) => (),
         Err(e) => println!("Could not build project: {}", e),
     }
-    match get_main_dll_path(true) {
+    match get_main_dll_path(true, starting_dir) {
         Ok(path) => {
             println!("{}", path);
             // Attempt to copy the path to the clipboard:
@@ -23,10 +23,11 @@ pub fn execute() {
     }
 }
 
-fn get_csproj_path() -> Option<String> {
-    utils::recursively_check_for_file(".", "*.csproj", 3, utils::SearchDirection::Child)
+fn get_csproj_path(starting_dir: &str) -> Option<String> {
+    utils::recursively_check_for_file(starting_dir, "*.csproj", 3, utils::SearchDirection::Child)
 }
 
+#[derive(Clone)]
 pub struct ProjectInfo {
     /// The name of the project + .csproj
     pub full_project_name: String,
@@ -34,8 +35,8 @@ pub struct ProjectInfo {
     /// As you can guess: the directory that the project csproj file resides in
     pub csproj_dir: String,
 }
-pub fn get_project_info() -> Result<ProjectInfo, String> {
-    let csproj_path = get_csproj_path();
+pub fn get_project_info(starting_dir: &str) -> Result<ProjectInfo, String> {
+    let csproj_path = get_csproj_path(starting_dir);
     if let Some(csproj_path) = csproj_path {
         let csproj_dir = Path::new(&csproj_path)
             .parent()
@@ -57,11 +58,11 @@ pub fn get_project_info() -> Result<ProjectInfo, String> {
     Err("No csproj file found".to_string())
 }
 
-pub fn get_main_dll_path(absolute: bool) -> Result<String, String> {
-    let proj_info = get_project_info();
+pub fn get_main_dll_path(absolute: bool, starting_dir: &str) -> Result<String, String> {
+    let proj_info = get_project_info(starting_dir);
     if let Ok(proj_info) = proj_info {
         let name = proj_info.project_name;
-        get_project_dll_path(absolute, name)
+        get_project_dll_path(absolute, name, starting_dir)
     } else {
         Err("No csproj file found".to_string())
     }
@@ -73,8 +74,12 @@ pub fn get_main_dll_path(absolute: bool) -> Result<String, String> {
 /// Otherwise, the path will be relative to the csproj file.
 ///
 /// Do not include the .dll extension in the name.
-pub fn get_project_dll_path(absolute: bool, name: String) -> Result<String, String> {
-    let proj_info = get_project_info();
+pub fn get_project_dll_path(
+    absolute: bool,
+    name: String,
+    starting_dir: &str,
+) -> Result<String, String> {
+    let proj_info = get_project_info(starting_dir);
     if let Ok(proj_info) = proj_info {
         let csproj_dir = proj_info.csproj_dir;
 
@@ -115,4 +120,96 @@ pub fn get_project_dll_path(absolute: bool, name: String) -> Result<String, Stri
     } else {
         Err("Could not find csproj file".to_string())
     }
+}
+
+/// Returns a vector of all absolute DLL paths for the project
+///
+/// This function will find all .dll files in the project directory and its subdirectories
+/// up to 3 levels deep, and return their absolute paths.
+pub fn get_all_project_dll_paths(starting_dir: &str) -> Result<Vec<String>, String> {
+    let proj_info = get_project_info(starting_dir)?;
+    let csproj_dir = proj_info.csproj_dir;
+
+    let mut absolute_dll_paths = Vec::new();
+
+    // Walk through the project directory and find all .dll files
+    if let Ok(entries) = std::fs::read_dir(&csproj_dir) {
+        for entry in entries.flatten() {
+            if let Ok(file_type) = entry.file_type() {
+                if file_type.is_file() {
+                    if let Ok(file_name) = entry.file_name().into_string() {
+                        if file_name.ends_with(".dll") {
+                            // Convert to absolute path
+                            match entry.path().absolutize() {
+                                Ok(abs_path) => {
+                                    absolute_dll_paths
+                                        .push(abs_path.to_string_lossy().into_owned());
+                                }
+                                Err(_) => {
+                                    // Fall back to original path if absolutization fails
+                                    absolute_dll_paths
+                                        .push(entry.path().to_string_lossy().into_owned());
+                                }
+                            }
+                        }
+                    }
+                } else if file_type.is_dir() {
+                    // Recursively check subdirectories (up to 2 more levels)
+                    if let Some(path_str) = entry.path().to_str() {
+                        if let Ok(sub_dlls) = get_all_dlls_in_directory(path_str, 2) {
+                            absolute_dll_paths.extend(sub_dlls);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(absolute_dll_paths)
+}
+
+/// Helper function to recursively find all DLL files in a directory
+fn get_all_dlls_in_directory(
+    directory: &str,
+    remaining_levels: usize,
+) -> Result<Vec<String>, String> {
+    let mut dll_paths = Vec::new();
+
+    if remaining_levels == 0 {
+        return Ok(dll_paths);
+    }
+
+    if let Ok(entries) = std::fs::read_dir(directory) {
+        for entry in entries.flatten() {
+            if let Ok(file_type) = entry.file_type() {
+                if file_type.is_file() {
+                    if let Ok(file_name) = entry.file_name().into_string() {
+                        if file_name.ends_with(".dll") {
+                            // Convert to absolute path
+                            match entry.path().absolutize() {
+                                Ok(abs_path) => {
+                                    dll_paths.push(abs_path.to_string_lossy().into_owned());
+                                }
+                                Err(_) => {
+                                    // Fall back to original path if absolutization fails
+                                    dll_paths.push(entry.path().to_string_lossy().into_owned());
+                                }
+                            }
+                        }
+                    }
+                } else if file_type.is_dir() {
+                    // Recursively check subdirectories
+                    if let Some(path_str) = entry.path().to_str() {
+                        if let Ok(sub_dlls) =
+                            get_all_dlls_in_directory(path_str, remaining_levels - 1)
+                        {
+                            dll_paths.extend(sub_dlls);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(dll_paths)
 }

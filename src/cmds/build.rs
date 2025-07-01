@@ -1,9 +1,8 @@
-use crate::{ensure_revit_version_is_set, external_cmds::{dotnet::{self, DotnetError}, msbuild::{self, MsBuildError}}, utils};
+use crate::{external_cmds::{dotnet::{self, DotnetError}, msbuild::{self, MsBuildError}}, utils};
 
 
-pub fn execute() {
-    ensure_revit_version_is_set();
-    match build_csharp_project() {
+pub fn execute(starting_dir: &str) {
+    match build_csharp_project(starting_dir) {
         Ok(_output) => {
             println!("Project successfully built");
         }
@@ -14,9 +13,9 @@ pub fn execute() {
 }
 
 /// Returns the output from the build command if it was successful, or an error message.
-pub fn build_csharp_project() -> Result<String, String> {
+pub fn build_csharp_project(starting_dir: &str) -> Result<String, String> {
     let csproj_path =
-        utils::recursively_check_for_file(".", "*.csproj", 3, utils::SearchDirection::Child);
+        utils::recursively_check_for_file(starting_dir, "*.csproj", 3, utils::SearchDirection::Child);
     if let Some(csproj_path) = csproj_path {
         match msbuild::build_project(&csproj_path) {
             Ok(output) => Ok(output),
