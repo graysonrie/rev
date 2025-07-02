@@ -101,13 +101,15 @@ pub enum GetAddinFileInfoError {
     FailedToParseXml(quick_xml::Error),
 }
 
-pub fn get_addin_file_info(path_to_addin_file: &str) -> Result<AddinFileInfo, GetAddinFileInfoError> {
+pub fn get_addin_file_info(
+    path_to_addin_file: &str,
+) -> Result<AddinFileInfo, GetAddinFileInfoError> {
     if !Path::new(path_to_addin_file).exists() {
         return Err(GetAddinFileInfoError::FileNotFound);
     }
 
-    let mut file =
-        File::open(path_to_addin_file).map_err(|e| GetAddinFileInfoError::FailedToOpenFile(e.to_string()))?;
+    let mut file = File::open(path_to_addin_file)
+        .map_err(|e| GetAddinFileInfoError::FailedToOpenFile(e.to_string()))?;
 
     let mut contents = String::new();
     file.read_to_string(&mut contents)
@@ -130,10 +132,15 @@ pub fn get_addin_file_info(path_to_addin_file: &str) -> Result<AddinFileInfo, Ge
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) => {
-                current_element = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                current_element = String::from_utf8_lossy(e.name().as_ref())
+                    .trim_matches('"')
+                    .to_string();
             }
             Ok(Event::Text(e)) => {
-                let text = String::from_utf8_lossy(e.as_ref()).to_string();
+                let text = String::from_utf8_lossy(e.as_ref())
+                    .to_string()
+                    .trim()
+                    .to_string();
 
                 match current_element.as_str() {
                     "Name" => addin_info.name = text,

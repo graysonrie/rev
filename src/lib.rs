@@ -73,7 +73,7 @@ pub fn get_addin_file_info(
 ) -> Result<export::addin_file::AddinFileInfo, GetAddinFileInfoError> {
     let project_name =
         get_project_name(starting_dir).map_err(|_| GetAddinFileInfoError::FileNotFound)?;
-    let parent_dir = Path::new(starting_dir).parent().unwrap();
+    let parent_dir = Path::new(starting_dir);
 
     let addin_file_path = parent_dir.join(format!("{}.addin", project_name));
     export::addin_file::get_addin_file_info(&addin_file_path.to_string_lossy())
@@ -95,20 +95,24 @@ impl Display for CreateAddinFileError {
 ///
 /// `starting_dir` is the directory that contains the C# project. This is the directory that contains the '.addin' file as well.
 /// `addin_info` is the information to write to the '.addin' file.
+///
+/// Returns the path to the addin file if it was created successfully, or an error if the file is not found or if the file is not a valid addin file.
 pub fn create_addin_file_for_project(
     starting_dir: &str,
     addin_info: export::addin_file::AddinFileInfo,
-) -> Result<(), CreateAddinFileError> {
+) -> Result<String, CreateAddinFileError> {
     let project_name =
         get_project_name(starting_dir).map_err(|_| CreateAddinFileError::FileNotFound)?;
-    let parent_dir = Path::new(starting_dir).parent().unwrap();
+    // The starting directory is the directory that contains the C# project. It is also the parent in this scenario
+    let parent_dir = Path::new(starting_dir);
 
     let addin_file_path = parent_dir.join(format!("{}.addin", project_name));
     if export::addin_file::is_addin_file_a_template_or_missing(&addin_file_path) {
         export::addin_file::create_addin_file(&addin_file_path, addin_info)
-            .map_err(|e| CreateAddinFileError::AddinFileError(e.to_string()))
+            .map_err(|e| CreateAddinFileError::AddinFileError(e.to_string()))?;
+        Ok(addin_file_path.to_string_lossy().to_string())
     } else {
-        Ok(())
+        Ok(addin_file_path.to_string_lossy().to_string())
     }
 }
 
@@ -134,6 +138,8 @@ pub fn get_project_name(starting_dir: &str) -> Result<String, String> {
             .file_name()
             .unwrap()
             .to_str()
+            .unwrap()
+            .strip_suffix(".csproj")
             .unwrap();
         Ok(project_name.to_string())
     } else {
