@@ -1,8 +1,7 @@
 use crate::state;
 use crate::utils;
 use crate::utils::input::{prompt_user, prompt_user_with_default};
-use quick_xml::Reader;
-use quick_xml::events::Event;
+use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::{BufWriter, Read, Write},
@@ -82,7 +81,7 @@ fn prompt_user_for_addin_file_info(project_name: &str) -> AddinFileInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AddinFileInfo {
     pub name: String,
     pub assembly: String,
@@ -93,12 +92,37 @@ pub struct AddinFileInfo {
     pub vendor_email: String,
 }
 
+// Wrapper structs for XML deserialization
+#[derive(Debug, Deserialize)]
+struct RevitAddIns {
+    #[serde(rename = "AddIn")]
+    add_in: AddIn,
+}
+
+#[derive(Debug, Deserialize)]
+struct AddIn {
+    #[serde(rename = "Name")]
+    name: String,
+    #[serde(rename = "Assembly")]
+    assembly: String,
+    #[serde(rename = "AddInId")]
+    addin_id: String,
+    #[serde(rename = "FullClassName")]
+    full_class_name: String,
+    #[serde(rename = "VendorId")]
+    vendor_id: String,
+    #[serde(rename = "VendorDescription")]
+    vendor_description: String,
+    #[serde(rename = "VendorEmail")]
+    vendor_email: String,
+}
+
 #[derive(Debug, Clone)]
 pub enum GetAddinFileInfoError {
     FileNotFound,
     FailedToOpenFile(String),
     FailedToReadFile(String),
-    FailedToParseXml(quick_xml::Error),
+    FailedToParseXml(String),
 }
 
 pub fn get_addin_file_info(
@@ -115,50 +139,20 @@ pub fn get_addin_file_info(
     file.read_to_string(&mut contents)
         .map_err(|e| GetAddinFileInfoError::FailedToReadFile(e.to_string()))?;
 
-    let mut reader = Reader::from_str(&contents);
+    // Parse the XML using serde-xml-rs
+    let revit_addins: RevitAddIns = serde_xml_rs::from_str(&contents)
+        .map_err(|e| GetAddinFileInfoError::FailedToParseXml(e.to_string()))?;
 
-    let mut buf = Vec::new();
-    let mut current_element = String::new();
-    let mut addin_info = AddinFileInfo {
-        name: String::new(),
-        assembly: String::new(),
-        addin_id: String::new(),
-        full_class_name: String::new(),
-        vendor_id: String::new(),
-        vendor_description: String::new(),
-        vendor_email: String::new(),
+    // Convert to our AddinFileInfo struct
+    let addin_info = AddinFileInfo {
+        name: revit_addins.add_in.name,
+        assembly: revit_addins.add_in.assembly,
+        addin_id: revit_addins.add_in.addin_id,
+        full_class_name: revit_addins.add_in.full_class_name,
+        vendor_id: revit_addins.add_in.vendor_id,
+        vendor_description: revit_addins.add_in.vendor_description,
+        vendor_email: revit_addins.add_in.vendor_email,
     };
-
-    loop {
-        match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) => {
-                current_element = String::from_utf8_lossy(e.name().as_ref())
-                    .trim_matches('"')
-                    .to_string();
-            }
-            Ok(Event::Text(e)) => {
-                let text = String::from_utf8_lossy(e.as_ref())
-                    .to_string()
-                    .trim()
-                    .to_string();
-
-                match current_element.as_str() {
-                    "Name" => addin_info.name = text,
-                    "Assembly" => addin_info.assembly = text,
-                    "AddInId" => addin_info.addin_id = text,
-                    "FullClassName" => addin_info.full_class_name = text,
-                    "VendorId" => addin_info.vendor_id = text,
-                    "VendorDescription" => addin_info.vendor_description = text,
-                    "VendorEmail" => addin_info.vendor_email = text,
-                    _ => {}
-                }
-            }
-            Ok(Event::Eof) => break,
-            Ok(_) => {}
-            Err(e) => return Err(GetAddinFileInfoError::FailedToParseXml(e)),
-        }
-        buf.clear();
-    }
 
     Ok(addin_info)
 }

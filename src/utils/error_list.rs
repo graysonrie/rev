@@ -35,6 +35,10 @@ impl ErrorList {
     pub fn view_warnings(&self) -> Vec<String> {
         self.warnings.clone()
     }
+    pub fn extend(&mut self, other: &ErrorList) {
+        self.errors.extend(other.errors.clone());
+        self.warnings.extend(other.warnings.clone());
+    }
 }
 
 impl Default for ErrorList {

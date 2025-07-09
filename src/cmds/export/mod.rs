@@ -15,28 +15,23 @@ use std::path::PathBuf;
 /// - Print out the path to the addin
 pub fn execute_auto(starting_dir: &str, for_version: &str, extra_dlls: &[&str]) {
     let destination_dir = get_revit_addins_path(for_version).unwrap();
-    if let Err(errors) = execute(starting_dir, extra_dlls, &destination_dir) {
-        if errors.has_errors() {
-            println!(
-                "Build failed with {} errors and {} warnings",
-                errors.view_errors().len(),
-                errors.view_warnings().len()
-            );
-        }
-        for error in errors.view_errors() {
-            println!("Error: {}", error);
-        }
-        for warning in errors.view_warnings() {
-            println!("Warning: {}", warning);
-        }
+    let errors = execute(starting_dir, extra_dlls, &destination_dir);
+    if errors.has_errors() {
+        println!(
+            "Build failed with {} errors and {} warnings",
+            errors.view_errors().len(),
+            errors.view_warnings().len()
+        );
+    }
+    for error in errors.view_errors() {
+        println!("Error: {}", error);
+    }
+    for warning in errors.view_warnings() {
+        println!("Warning: {}", warning);
     }
 }
 
-pub fn execute(
-    starting_dir: &str,
-    extra_dlls: &[&str],
-    destination_dir: &Path,
-) -> Result<(), ErrorList> {
+pub fn execute(starting_dir: &str, extra_dlls: &[&str], destination_dir: &Path) -> ErrorList {
     let mut dlls_to_export = Vec::new();
     let project_info = locate::get_project_info(starting_dir);
     let mut error_list = ErrorList::new();
@@ -46,7 +41,7 @@ pub fn execute(
         error_list.add_error(
             "Error getting project info. Ensure you have a .csproj file in the current directory.",
         );
-        return Err(error_list);
+        return error_list;
     }
     match locate::get_main_dll_path(true, starting_dir) {
         Ok(dll_path) => {
@@ -54,7 +49,7 @@ pub fn execute(
         }
         Err(e) => {
             error_list.add_error(&format!("Error getting project DLL path: {}", e));
-            return Err(error_list);
+            return error_list;
         }
     }
     for dll in extra_dlls.iter() {
@@ -126,7 +121,7 @@ pub fn execute(
             error_list.add_error(&format!("Error creating addin file: {}", e));
         }
     }
-    Ok(())
+    error_list
 }
 
 /// Returns the path to the Revit addin folder or an error message if it cannot be found.

@@ -24,16 +24,17 @@ pub fn export_addin_multiple(
     starting_dir: &str,
     extra_dlls: &[&str],
     destination_directories: &[&Path],
-) -> Result<(), ErrorList> {
+) -> ErrorList {
     if let Err(e) = build_project(starting_dir) {
         let mut error_list = ErrorList::new();
         error_list.add_error(&e);
-        return Err(error_list);
+        return error_list;
     }
+    let mut error_list = ErrorList::new();
     for destination_dir in destination_directories {
-        export::execute(starting_dir, extra_dlls, destination_dir)?;
+        error_list.extend(&export::execute(starting_dir, extra_dlls, destination_dir));
     }
-    Ok(())
+    error_list
 }
 
 /// Builds the addin, then exports the addin to the given destination directory. Returns an error list if any errors occur.
@@ -41,15 +42,11 @@ pub fn export_addin_multiple(
 /// `starting_dir` is the directory that contains the C# project.
 /// `extra_dlls` are any additional DLLs that need to be exported.
 /// `destination_dir` is the directory to export the addin to.
-pub fn export_addin(
-    starting_dir: &str,
-    extra_dlls: &[&str],
-    destination_dir: &Path,
-) -> Result<(), ErrorList> {
+pub fn export_addin(starting_dir: &str, extra_dlls: &[&str], destination_dir: &Path) -> ErrorList {
     if let Err(e) = build_project(starting_dir) {
         let mut error_list = ErrorList::new();
         error_list.add_error(&e);
-        return Err(error_list);
+        return error_list;
     }
     export::execute(starting_dir, extra_dlls, destination_dir)
 }
@@ -80,6 +77,16 @@ pub fn get_addin_file_info(
         .map_err(GetAddinFileInfoError::AddinFileError)
 }
 
+/// Gets the addin file info from the given path. Returns an error if the file is not found or if the file is not a valid addin file. Otherwise, returns the contents of the '.addin' file.
+///
+/// `addin_file_path` is the path to the '.addin' file.
+pub fn get_addin_file_info_from_file(
+    addin_file_path: &str,
+) -> Result<export::addin_file::AddinFileInfo, GetAddinFileInfoError> {
+    export::addin_file::get_addin_file_info(addin_file_path)
+        .map_err(GetAddinFileInfoError::AddinFileError)
+}
+
 #[derive(Debug, Clone)]
 pub enum CreateAddinFileError {
     FileNotFound,
@@ -107,13 +114,9 @@ pub fn create_addin_file_for_project(
     let parent_dir = Path::new(starting_dir);
 
     let addin_file_path = parent_dir.join(format!("{}.addin", project_name));
-    if export::addin_file::is_addin_file_a_template_or_missing(&addin_file_path) {
-        export::addin_file::create_addin_file(&addin_file_path, addin_info)
-            .map_err(|e| CreateAddinFileError::AddinFileError(e.to_string()))?;
-        Ok(addin_file_path.to_string_lossy().to_string())
-    } else {
-        Ok(addin_file_path.to_string_lossy().to_string())
-    }
+    export::addin_file::create_addin_file(&addin_file_path, addin_info)
+        .map_err(|e| CreateAddinFileError::AddinFileError(e.to_string()))?;
+    Ok(addin_file_path.to_string_lossy().to_string())
 }
 
 /// Gets all the DLLs in the project. Returns an error if no DLLs are found.

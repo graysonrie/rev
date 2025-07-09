@@ -154,9 +154,9 @@ pub fn get_all_project_dll_paths(starting_dir: &str) -> Result<Vec<String>, Stri
                         }
                     }
                 } else if file_type.is_dir() {
-                    // Recursively check subdirectories (up to 2 more levels)
+                    // Recursively check subdirectories (up to 5 more levels)
                     if let Some(path_str) = entry.path().to_str() {
-                        if let Ok(sub_dlls) = get_all_dlls_in_directory(path_str, 2) {
+                        if let Ok(sub_dlls) = get_all_dlls_in_directory(path_str, 5) {
                             absolute_dll_paths.extend(sub_dlls);
                         }
                     }
