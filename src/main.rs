@@ -51,19 +51,23 @@ enum Commands {
     Locate,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
 
     match args.command {
         Commands::Build => {
             let _ = ensure_revit_version_is_set();
-            cmds::build::execute(DEFAULT_STARTING_DIR)
+            cmds::build::execute(DEFAULT_STARTING_DIR).await
         }
-        Commands::Export => cmds::export::execute_auto(
-            DEFAULT_STARTING_DIR,
-            ensure_revit_version_is_set().as_str(),
-            &["RealRevitPlugin"],
-        ),
+        Commands::Export => {
+            cmds::export::execute_auto(
+                DEFAULT_STARTING_DIR,
+                ensure_revit_version_is_set().as_str(),
+                &["RealRevitPlugin"],
+            )
+            .await
+        }
         Commands::RevitVersion => {
             let revit_version = ensure_revit_version_is_set();
             println!(
@@ -79,7 +83,7 @@ fn main() {
                 ..state
             });
         }
-        Commands::Locate => cmds::locate::execute(DEFAULT_STARTING_DIR),
+        Commands::Locate => cmds::locate::execute(DEFAULT_STARTING_DIR).await,
     }
 }
 

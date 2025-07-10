@@ -13,10 +13,10 @@ use crate::utils;
 ///
 /// `addin_dir` should be the directory that contains the DLL file for your addin,
 /// not the outer Revit addins directory
-pub fn build_if_exists(addin_dir: &Path) {
+pub async fn build_if_exists(addin_dir: &Path) {
     if let Some(node_modules) = find_node_modules_path(".") {
         println!("Exporting static assets for web app. Please wait...");
-        match create_static_export(&node_modules) {
+        match create_static_export(&node_modules).await {
             Ok(_) => {
                 let node_modules_path = Path::new(&node_modules);
                 let parent = node_modules_path.parent().unwrap();
@@ -59,11 +59,11 @@ fn find_node_modules_path(starting_dir: &str) -> Option<PathBuf> {
     })
 }
 
-fn create_static_export(node_modules_path: &Path) -> Result<(), String> {
+async fn create_static_export(node_modules_path: &Path) -> Result<(), String> {
     let parent = node_modules_path.parent().unwrap();
 
     // Run yarn build in the parent directory
-    match yarn::build(parent.to_str().unwrap()) {
+    match yarn::build(parent.to_str().unwrap()).await {
         Ok(_) => Ok(()),
         Err(yarn::YarnError::NotFound) => Err("Yarn is not installed on this system".to_string()),
         Err(yarn::YarnError::Output(e)) => Err(format!("Failed to run yarn build: {}", e)),

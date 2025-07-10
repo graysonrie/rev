@@ -1,7 +1,13 @@
-use std::process::Command;
+use tokio::process::Command;
 
-pub fn check_if_exists() -> bool {
-    let result = Command::new("dotnet").arg("--version").output();
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+pub async fn check_if_exists() -> bool {
+    let result = Command::new("dotnet")
+        .arg("--version")
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .await;
     result.is_ok()
 }
 
@@ -9,14 +15,16 @@ pub enum DotnetError {
     NotFound,
     Output(String),
 }
-pub fn build_project(project_path: &str) -> Result<String, DotnetError> {
-    if !check_if_exists() {
+pub async fn build_project(project_path: &str) -> Result<String, DotnetError> {
+    if !check_if_exists().await {
         return Err(DotnetError::NotFound);
     }
     let result = Command::new("dotnet")
         .arg("build")
         .arg(project_path)
-        .output();
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .await;
     match result {
         Ok(output) => {
             if !output.status.success() {

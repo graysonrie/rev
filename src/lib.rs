@@ -11,28 +11,30 @@ pub use cmds::build;
 use crate::cmds::{export, locate};
 pub use crate::utils::error_list::ErrorList;
 
+pub const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 /// Builds the project in the given directory. Returns the output from the build command if it was successful, or an error message.
-pub fn build_project(starting_dir: &str) -> Result<String, String> {
-    build::build_csharp_project(starting_dir)
+pub async fn build_project(starting_dir: &str) -> Result<String, String> {
+    build::build_csharp_project(starting_dir).await
 }
 /// Exports the addin to the given destination directories. Returns an error list if any errors occur.
 ///
 /// `starting_dir` is the directory that contains the C# project.
 /// `extra_dlls` are any additional DLLs that need to be exported.
 /// `destination_directories` are the directories to export the addin to.
-pub fn export_addin_multiple(
+pub async fn export_addin_multiple(
     starting_dir: &str,
     extra_dlls: &[&str],
     destination_directories: &[&Path],
 ) -> ErrorList {
-    if let Err(e) = build_project(starting_dir) {
+    if let Err(e) = build_project(starting_dir).await {
         let mut error_list = ErrorList::new();
         error_list.add_error(&e);
         return error_list;
     }
     let mut error_list = ErrorList::new();
     for destination_dir in destination_directories {
-        error_list.extend(&export::execute(starting_dir, extra_dlls, destination_dir));
+        error_list.extend(&export::execute(starting_dir, extra_dlls, destination_dir).await);
     }
     error_list
 }
@@ -42,13 +44,13 @@ pub fn export_addin_multiple(
 /// `starting_dir` is the directory that contains the C# project.
 /// `extra_dlls` are any additional DLLs that need to be exported.
 /// `destination_dir` is the directory to export the addin to.
-pub fn export_addin(starting_dir: &str, extra_dlls: &[&str], destination_dir: &Path) -> ErrorList {
-    if let Err(e) = build_project(starting_dir) {
+pub async fn export_addin(starting_dir: &str, extra_dlls: &[&str], destination_dir: &Path) -> ErrorList {
+    if let Err(e) = build_project(starting_dir).await {
         let mut error_list = ErrorList::new();
         error_list.add_error(&e);
         return error_list;
     }
-    export::execute(starting_dir, extra_dlls, destination_dir)
+    export::execute(starting_dir, extra_dlls, destination_dir).await
 }
 
 #[derive(Debug, Clone)]

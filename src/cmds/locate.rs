@@ -5,9 +5,9 @@ use path_absolutize::Absolutize;
 use std::path::Path;
 
 /// Prints out the full path to the project DLL
-pub fn execute(starting_dir: &str) {
+pub async fn execute(starting_dir: &str) {
     // First: build the project:
-    match build::build_csharp_project(starting_dir) {
+    match build::build_csharp_project(starting_dir).await {
         Ok(_) => (),
         Err(e) => println!("Could not build project: {}", e),
     }

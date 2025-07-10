@@ -13,9 +13,9 @@ use std::path::PathBuf;
 /// - Copy the DLLs to the addin directory
 /// - Copy the .addin file to the Revit addins directory
 /// - Print out the path to the addin
-pub fn execute_auto(starting_dir: &str, for_version: &str, extra_dlls: &[&str]) {
+pub async fn execute_auto(starting_dir: &str, for_version: &str, extra_dlls: &[&str]) {
     let destination_dir = get_revit_addins_path(for_version).unwrap();
-    let errors = execute(starting_dir, extra_dlls, &destination_dir);
+    let errors = execute(starting_dir, extra_dlls, &destination_dir).await;
     if errors.has_errors() {
         println!(
             "Build failed with {} errors and {} warnings",
@@ -31,7 +31,7 @@ pub fn execute_auto(starting_dir: &str, for_version: &str, extra_dlls: &[&str]) 
     }
 }
 
-pub fn execute(starting_dir: &str, extra_dlls: &[&str], destination_dir: &Path) -> ErrorList {
+pub async fn execute(starting_dir: &str, extra_dlls: &[&str], destination_dir: &Path) -> ErrorList {
     let mut dlls_to_export = Vec::new();
     let project_info = locate::get_project_info(starting_dir);
     let mut error_list = ErrorList::new();
@@ -69,7 +69,7 @@ pub fn execute(starting_dir: &str, extra_dlls: &[&str], destination_dir: &Path) 
 
     match addin_file::handle_addin_file(starting_dir) {
         Ok(addin_file_path) => {
-            if let Err(e) = build::build_csharp_project(starting_dir) {
+            if let Err(e) = build::build_csharp_project(starting_dir).await {
                 error_list.add_error(&format!("Error building project: {}", e));
             }
             // Clone values to avoid moving them in the loop

@@ -1,5 +1,8 @@
+use std::os::windows::process::CommandExt;
 use std::path::Path;
-use std::process::Command;
+use tokio::process::Command;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 fn get_yarn_path() -> Option<String> {
     // Common paths where yarn might be installed
@@ -22,7 +25,13 @@ fn get_yarn_path() -> Option<String> {
         // println!("Checking path: {}", path);
         if path == "yarn" {
             // For the PATH-based check, use the --version command
-            if Command::new(path).arg("--version").output().is_ok() {
+            // Note: This is still synchronous since we're in a sync function
+            if std::process::Command::new(path)
+                .arg("--version")
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+                .is_ok()
+            {
                 // println!("Found yarn in PATH");
                 return Some(path.to_string());
             }
@@ -40,7 +49,7 @@ pub enum YarnError {
     Output(String),
 }
 
-pub fn build(working_dir: &str) -> Result<String, YarnError> {
+pub async fn build(working_dir: &str) -> Result<String, YarnError> {
     let yarn_path = match get_yarn_path() {
         Some(path) => path,
         None => return Err(YarnError::NotFound),
@@ -52,7 +61,9 @@ pub fn build(working_dir: &str) -> Result<String, YarnError> {
     let result = Command::new(yarn_path)
         .arg("build")
         .current_dir(working_dir)
-        .output();
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .await;
 
     match result {
         Ok(output) => {
