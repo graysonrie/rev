@@ -1,5 +1,5 @@
 [package]
-name = "rev"
+name = "revitcli"
 version = "1.0.0"
 edition = "2024"
 authors = ["Grayson Rieger"]
